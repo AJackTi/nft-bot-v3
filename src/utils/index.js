@@ -29,6 +29,20 @@ export const transformRawTrades = (rawTrades, collateral) =>
       },
     },
   }));
+import dotenv from 'dotenv';
+
+// Load base .env file first
+dotenv.config();
+
+// If there's a specific NODE_ENV set, attempt to load that environment specific .env file
+if (process.env.NODE_ENV) {
+  const environmentSpecificFile = `.env.${process.env.NODE_ENV}`;
+
+  dotenv.config({
+    path: environmentSpecificFile,
+    override: true,
+  });
+}
 
 export const buildTradeIdentifier = (collateral, trader, pairIndex, index, isPendingOpenLimitOrder, log = true) => {
   if (isPendingOpenLimitOrder === undefined) {

@@ -51,7 +51,7 @@ import {
   initStack,
   getEthersContract,
 } from './utils/index.js';
-const { toHex, BN } = Web3.utils;
+const { toHex, toBigInt } = Web3.utils;
 
 // Make errors JSON serializable
 Object.defineProperty(Error.prototype, 'toJSON', {
@@ -139,7 +139,7 @@ const app = {
   gas: {
     priorityTransactionMaxPriorityFeePerGas: 50,
     standardTransactionGasFees: { maxFee: 31, maxPriorityFee: 31 },
-    gasPriceBn: new Web3.utils.BN(0.1 * 1e9),
+    gasPriceBn: toBigInt(0.1 * 1e9),
   },
 };
 
@@ -289,51 +289,60 @@ function createWeb3Provider(providerUrl) {
 
 function createWeb3Client(providerIndex, providerUrl) {
   const provider = createWeb3Provider(providerUrl);
-  const web3Client = new Web3(provider);
-  web3Client.eth.handleRevert = true;
-  web3Client.eth.defaultAccount = process.env.PUBLIC_KEY;
-  web3Client.eth.defaultChain = CHAIN;
+  const web3 = new Web3(provider);
+  web3.eth.handleRevert = true;
+  web3.eth.defaultAccount = process.env.PUBLIC_KEY;
+  web3.eth.defaultChain = CHAIN;
 
-  web3Client.eth.subscribe('newBlockHeaders').on('data', async (header) => {
-    const newBlockNumber = header.number;
+  // TODO
+  // web3.eth.subscribe('newBlockHeaders').on('data', async (header) => {
+  //   const newBlockNumber = header.number;
 
-    if (newBlockNumber === null) {
-      appLogger.debug(`Received unfinished block from provider ${providerUrl}; ignoring...`);
+  //   if (newBlockNumber === null) {
+  //     appLogger.debug(`Received unfinished block from provider ${providerUrl}; ignoring...`);
 
-      return;
-    }
+  //     return;
+  //   }
 
-    if (newBlockNumber > app.blocks.latestL2Block) {
-      app.blocks.latestL2Block = newBlockNumber;
-    }
+  //   if (newBlockNumber > app.blocks.latestL2Block) {
+  //     app.blocks.latestL2Block = newBlockNumber;
+  //   }
 
-    app.blocks.web3ClientBlocks[providerIndex] = newBlockNumber;
+  //   app.blocks.web3ClientBlocks[providerIndex] = newBlockNumber;
 
-    appLogger.debug(`New block received ${newBlockNumber} from provider ${providerUrl}...`);
+  //   appLogger.debug(`New block received ${newBlockNumber} from provider ${providerUrl}...`);
 
-    if (app.currentlySelectedWeb3ClientIndex === providerIndex) {
-      return;
-    }
+  //   if (app.currentlySelectedWeb3ClientIndex === providerIndex) {
+  //     return;
+  //   }
 
-    const blockDiff =
-      app.currentlySelectedWeb3ClientIndex === -1
-        ? newBlockNumber
-        : newBlockNumber - app.blocks.web3ClientBlocks[app.currentlySelectedWeb3ClientIndex];
+  //   const blockDiff =
+  //     app.currentlySelectedWeb3ClientIndex === -1
+  //       ? newBlockNumber
+  //       : newBlockNumber - app.blocks.web3ClientBlocks[app.currentlySelectedWeb3ClientIndex];
 
-    // Check if this block is more recent than the currently selected provider's block by the max drift
-    // and, if so, switch now
-    if (blockDiff > MAX_PROVIDER_BLOCK_DRIFT) {
-      appLogger.info(
-        `Switching to provider ${providerUrl} #${providerIndex} because it is ${blockDiff} block(s) ahead of current provider (${newBlockNumber} vs ${
-          app.blocks.web3ClientBlocks[app.currentlySelectedWeb3ClientIndex]
-        })`
-      );
+  //   // Check if this block is more recent than the currently selected provider's block by the max drift
+  //   // and, if so, switch now
+  //   if (blockDiff > MAX_PROVIDER_BLOCK_DRIFT) {
+  //     appLogger.info(
+  //       `Switching to provider ${providerUrl} #${providerIndex} because it is ${blockDiff} block(s) ahead of current provider (${newBlockNumber} vs ${
+  //         app.blocks.web3ClientBlocks[app.currentlySelectedWeb3ClientIndex]
+  //       })`
+  //     );
 
-      setCurrentWeb3Client(providerIndex);
+  //     setCurrentWeb3Client(providerIndex);
+  //   }
+  // });
+
+  web3.eth.subscribe('newBlockHeaders', (error, blockHeader) => {
+    if (!error) {
+      console.log('web3 subscribe => block header:', blockHeader);
+    } else {
+      console.error('web3 subscribe => error:', error);
     }
   });
 
-  return web3Client;
+  return web3;
 }
 
 const nonceManager = new NonceManager(
@@ -445,7 +454,7 @@ async function startFetchingLatestGasPrices() {
       if (NETWORK.gasMode === GAS_MODE.EIP1559) {
         // TODO: Add support for EIP1159 provider fetching here
       } else if (NETWORK.gasMode === GAS_MODE.LEGACY) {
-        app.gas.gasPriceBn = new BN(await app.currentlySelectedWeb3Client.eth.getGasPrice());
+        app.gas.gasPriceBn = new toBigInt(await app.currentlySelectedWeb3Client.eth.getGasPrice());
       }
     }
   }
@@ -1788,7 +1797,7 @@ function getTransactionGasFees(network, isPriority = false) {
     };
   } else if (NETWORK.gasMode === GAS_MODE.LEGACY) {
     return {
-      gasPrice: toHex(app.gas.gasPriceBn.mul(BN(500)).div(BN(100))),
+      gasPrice: toHex(app.gas.gasPriceBn.mul(toBigInt(500)).div(toBigInt(100))),
     };
   }
 
