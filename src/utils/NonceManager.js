@@ -36,7 +36,7 @@ export class NonceManager {
 
     const web3Client = this.getWeb3Client();
 
-    this.lastNonce = (await web3Client.eth.getTransactionCount(this.accountAddress)) - 1;
+    this.lastNonce = (await web3Client.eth.getTransactionCount(this.accountAddress)) - BigInt(1);
 
     this.logger.debug(`Last nonce for account ${this.accountAddress} was ${this.lastNonce}!`);
 
